@@ -5,12 +5,16 @@
     tagClass: function(item) {
       return 'label label-info';
     },
+    tagTemplate: function() {
+      return '<span class="tag %{tagClass}">%{itemText}<span data-role="remove"></span></span>'
+    },
     itemValue: function(item) {
       return item ? item.toString() : item;
     },
     itemText: function(item) {
       return this.itemValue(item);
     },
+    customBehaviour: undefined,
     freeInput: true,
     addOnBlur: true,
     maxTags: undefined,
@@ -95,6 +99,14 @@
         }
       }
 
+      // raise beforeItemAdd arg
+      var beforeItemAddEvent = $.Event('beforeItemAdd', { item: item, cancel: false });
+      self.$element.trigger(beforeItemAddEvent);
+      if (beforeItemAddEvent.cancel)
+        return;
+
+      item = beforeItemAddEvent.item
+
       var itemValue = self.options.itemValue(item),
           itemText = self.options.itemText(item),
           tagClass = self.options.tagClass(item);
@@ -114,17 +126,12 @@
       if (self.items().toString().length + item.length + 1 > self.options.maxInputLength)
         return;
 
-      // raise beforeItemAdd arg
-      var beforeItemAddEvent = $.Event('beforeItemAdd', { item: item, cancel: false });
-      self.$element.trigger(beforeItemAddEvent);
-      if (beforeItemAddEvent.cancel)
-        return;
-
       // register item in internal array and map
       self.itemsArray.push(item);
 
       // add a tag element
-      var $tag = $('<span class="tag ' + htmlEncode(tagClass) + '">' + htmlEncode(itemText) + '<span data-role="remove"></span></span>');
+      var tagHtml = self.options.tagTemplate.call(self, item).replace(/%{(tagClass)}/g, htmlEncode(tagClass)).replace(/%{(itemText)}/g, htmlEncode(itemText));
+      var $tag = $(tagHtml);
       $tag.data('item', item);
       self.findInputWrapper().before($tag);
       $tag.after(' ');
@@ -261,7 +268,7 @@
       makeOptionItemFunction(self.options, 'itemValue');
       makeOptionItemFunction(self.options, 'itemText');
       makeOptionFunction(self.options, 'tagClass');
-      
+
       // Typeahead Bootstrap version 2.3.2
       if (self.options.typeahead) {
         var typeahead = self.options.typeahead || {};
@@ -316,7 +323,7 @@
       // typeahead.js
       if (self.options.typeaheadjs) {
           var typeaheadjs = self.options.typeaheadjs || {};
-          
+
           self.$input.typeahead(null, typeaheadjs).on('typeahead:selected', $.proxy(function (obj, datum) {
             if (typeaheadjs.valueKey)
               self.add(datum[typeaheadjs.valueKey]);
@@ -343,7 +350,7 @@
               }
           }, self));
         }
-        
+
 
       self.$container.on('keydown', 'input', $.proxy(function(event) {
         var $input = $(event.target),
@@ -434,6 +441,10 @@
         }
         self.remove($(event.target).closest('.tag').data('item'));
       }, self));
+
+      if(self.options.customBehaviour) {
+        self.options.customBehaviour.call(self, self.$container);
+      }
 
       // Only add existing value as tags when using strings as tags
       if (self.options.itemValue === defaultOptions.itemValue) {
@@ -579,7 +590,7 @@
   }
 
   /**
-    * Returns boolean indicates whether user has pressed an expected key combination. 
+    * Returns boolean indicates whether user has pressed an expected key combination.
     * @param object keyPressEvent: JavaScript event object, refer
     *     http://www.w3.org/TR/2003/WD-DOM-Level-3-Events-20030331/ecma-script-binding.html
     * @param object lookupList: expected key combinations, as in:
